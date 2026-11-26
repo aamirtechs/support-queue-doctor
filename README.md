@@ -274,6 +274,7 @@ and per-channel tables, and the findings as JSON, and
 | Flag | Meaning |
 | --- | --- |
 | `--stale-hours` | A ticket with no activity for more than this many hours is stale (default: 48) |
+| `--old-hours` | An open ticket older than this many hours is flagged as old (default: 72) |
 | `--max-open` | Most open tickets allowed per agent before overload is flagged (default: 20) |
 | `--as-of` | Date to compare timestamps against, for example 2026-11-17 (default: now) |
 | `--json` | Emit JSON instead of text |
@@ -281,8 +282,7 @@ and per-channel tables, and the findings as JSON, and
 | `--strict` | With --check, also exit 1 on warnings |
 | `--out` | Write the report to a file |
 
-The old-ticket limit is 72 hours and the first-response
-target is 24 hours, both fixed and documented here.
+The first-response target is 24 hours, fixed and documented here.
 
 ## Edge cases
 

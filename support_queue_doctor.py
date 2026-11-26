@@ -266,7 +266,7 @@ def is_on_hold(ticket):
 
 
 def audit(tickets, stale_hours=DEFAULT_STALE_HOURS,
-          max_open=DEFAULT_MAX_OPEN, as_of=None):
+          max_open=DEFAULT_MAX_OPEN, as_of=None, old_hours=OLD_HOURS):
     """Audit a parsed ticket list and return a list of findings."""
     if as_of is None:
         as_of = datetime.now(timezone.utc)
@@ -312,35 +312,35 @@ def audit(tickets, stale_hours=DEFAULT_STALE_HOURS,
         age = hours_between(created, as_of)
         if age < 0:
             continue
-        if age > OLD_HOURS:
+        if age > old_hours:
             findings.append(Finding(
                 ticket_id, "old-ticket", "error",
                 "ticket has been open for %.1f hours, over the "
-                "limit of %d hours" % (age, OLD_HOURS)))
+                "limit of %d hours" % (age, old_hours)))
         if not ticket["agent"]:
-            if age > OLD_HOURS:
+            if age > old_hours:
                 findings.append(Finding(
                     ticket_id, "unassigned-old-ticket", "error",
                     "ticket has no agent and has been open for "
                     "%.1f hours, over the limit of %d hours"
-                    % (age, OLD_HOURS)))
+                    % (age, old_hours)))
             else:
                 findings.append(Finding(
                     ticket_id, "unassigned-ticket", "warning",
                     "ticket has no agent assigned, so nobody "
                     "owns it"))
-        if is_pending(ticket) and age > OLD_HOURS:
+        if is_pending(ticket) and age > old_hours:
             findings.append(Finding(
                 ticket_id, "stuck-pending-ticket", "error",
                 "ticket has been pending for %.1f hours, over "
                 "the limit of %d hours, so it is hidden from "
-                "daily views" % (age, OLD_HOURS)))
-        if is_on_hold(ticket) and age > OLD_HOURS:
+                "daily views" % (age, old_hours)))
+        if is_on_hold(ticket) and age > old_hours:
             findings.append(Finding(
                 ticket_id, "stuck-on-hold-ticket", "error",
                 "ticket has been on hold for %.1f hours, over "
                 "the limit of %d hours, so it is hidden from "
-                "daily views" % (age, OLD_HOURS)))
+                "daily views" % (age, old_hours)))
         if first is None:
             if age > FIRST_RESPONSE_HOURS:
                 findings.append(Finding(
@@ -380,11 +380,11 @@ def audit(tickets, stale_hours=DEFAULT_STALE_HOURS,
     return findings
 
 
-def age_bucket(age):
+def age_bucket(age, old_hours=OLD_HOURS):
     """Return the age bucket label for an age in hours."""
     if age <= 24:
         return "0-24h"
-    if age <= OLD_HOURS:
+    if age <= old_hours:
         return "24-72h"
     if age <= 168:
         return "72h-7d"
@@ -392,7 +392,7 @@ def age_bucket(age):
 
 
 def summarize(tickets, findings, as_of,
-              stale_hours=DEFAULT_STALE_HOURS):
+              stale_hours=DEFAULT_STALE_HOURS, old_hours=OLD_HOURS):
     """Return the summary counts for a ticket list and findings."""
     errors = sum(1 for item in findings if item.severity == "error")
     warnings = sum(1 for item in findings
@@ -411,7 +411,7 @@ def summarize(tickets, findings, as_of,
         age = hours_between(created, as_of)
         if age < 0:
             continue
-        buckets[age_bucket(age)] += 1
+        buckets[age_bucket(age, old_hours)] += 1
         ages.append(age)
     per_agent = {}
     for ticket in open_tickets:
@@ -427,7 +427,7 @@ def summarize(tickets, findings, as_of,
         if age < 0:
             continue
         row["ages"].append(age)
-        if age > OLD_HOURS:
+        if age > old_hours:
             row["old"] += 1
         last_seen = ticket["last_activity_at"] \
             if ticket["last_activity_at"] is not None else created
@@ -453,7 +453,7 @@ def summarize(tickets, findings, as_of,
         age = hours_between(created, as_of)
         if age < 0:
             continue
-        if age > OLD_HOURS:
+        if age > old_hours:
             row["old"] += 1
         if ticket["first_response_at"] is None \
                 and age > FIRST_RESPONSE_HOURS:
@@ -496,7 +496,7 @@ def render_text(tickets, findings, summary):
                  "unassigned old: %(unassigned_old)d, stuck "
                  "pending: %(stuck_pending)d, stuck on hold: "
                  "%(stuck_on_hold)d" % dict(
-                     summary, old_limit=OLD_HOURS))
+                     summary, old_limit=summary.get("old_limit", OLD_HOURS)))
     lines.append("First-response breaches: "
                  "%(first_response_breaches)d, stale tickets: "
                  "%(stale)d, overloaded agents: "
@@ -549,6 +549,11 @@ def build_parser():
                     "for old, unassigned, stuck, breached, and "
                     "stale tickets.")
     parser.add_argument("csv_file", help="queue CSV export to audit")
+    parser.add_argument("--old-hours", type=int,
+                        default=OLD_HOURS,
+                        help="an open, pending, or on-hold ticket older "
+                        "than this many hours is flagged as old "
+                        "(default: %d)" % OLD_HOURS)
     parser.add_argument("--stale-hours", type=int,
                         default=DEFAULT_STALE_HOURS,
                         help="a ticket with no activity for more "
@@ -576,6 +581,10 @@ def build_parser():
 def main(argv=None):
     """Run the CLI and return the exit code."""
     args = build_parser().parse_args(argv)
+    if args.old_hours < 0:
+        print("error: --old-hours must be at least 0",
+              file=sys.stderr)
+        return 2
     if args.stale_hours < 0:
         print("error: --stale-hours must be at least 0",
               file=sys.stderr)
@@ -600,13 +609,16 @@ def main(argv=None):
     findings.extend(audit(tickets,
                           stale_hours=args.stale_hours,
                           max_open=args.max_open,
-                          as_of=as_of))
+                          as_of=as_of,
+                          old_hours=args.old_hours))
     summary = summarize(tickets, findings, as_of,
-                        stale_hours=args.stale_hours)
+                        stale_hours=args.stale_hours,
+                        old_hours=args.old_hours)
     if args.json:
         report = render_json(tickets, findings, summary)
     else:
-        report = render_text(tickets, findings, summary)
+        summary_for_text = dict(summary, old_limit=args.old_hours)
+        report = render_text(tickets, findings, summary_for_text)
     if args.out is not None:
         try:
             with open(args.out, "w", encoding="utf-8") as handle:
