@@ -599,6 +599,22 @@ class TestOutputAndCli(unittest.TestCase):
         self.assertIn("findings: 1, errors: 0, warnings: 1",
                       buffer.getvalue())
 
+    def test_old_hours_flag(self):
+        path = os.path.join(EXAMPLES, "queue.csv")
+        default_buf = io.StringIO()
+        with redirect_stdout(default_buf):
+            sqd.main([path, "--as-of", "2026-11-17"])
+        default_out = default_buf.getvalue()
+        self.assertNotIn("ERROR [old-ticket] Q-102:", default_out)
+        self.assertIn("Old tickets (over 72 hours): 6", default_out)
+
+        custom_buf = io.StringIO()
+        with redirect_stdout(custom_buf):
+            sqd.main([path, "--as-of", "2026-11-17", "--old-hours", "48"])
+        custom_out = custom_buf.getvalue()
+        self.assertIn("ERROR [old-ticket] Q-102:", custom_out)
+        self.assertIn("Old tickets (over 48 hours): 7", custom_out)
+
     def test_json_output(self):
         path = os.path.join(EXAMPLES, "clean.csv")
         buffer = io.StringIO()
@@ -633,6 +649,11 @@ class TestOutputAndCli(unittest.TestCase):
     def test_negative_stale_hours(self):
         text, code = self.run_main(HEADER + row(),
                                    ["--stale-hours", "-1"])
+        self.assertEqual(code, 2)
+
+    def test_negative_old_hours(self):
+        text, code = self.run_main(HEADER + row(),
+                                   ["--old-hours", "-1"])
         self.assertEqual(code, 2)
 
     def test_negative_max_open(self):
