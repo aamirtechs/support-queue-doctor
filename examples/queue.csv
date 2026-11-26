@@ -1,0 +1,20 @@
+id,subject,status,agent,channel,created_at,first_response_at,last_activity_at,resolved_at
+Q-101,Refund not received,open,Ana,email,2026-11-13 09:00,2026-11-13 10:00,2026-11-16 09:00,
+Q-102,Invoice is wrong,open,Ben,chat,2026-11-14 08:00,2026-11-14 09:00,2026-11-14 10:00,
+Q-103,Order never arrived,pending,Ana,email,2026-11-12 09:00,2026-11-12 10:00,2026-11-12 11:00,
+Q-104,App crashes on login,on-hold,Cara,chat,2026-11-11 10:00,2026-11-11 11:00,2026-11-16 12:00,
+Q-105,Data export is broken,open,Dan,phone,2026-11-16 09:00,,2026-11-16 09:00,
+Q-106,Password reset link expired,open,,email,2026-11-12 09:00,,2026-11-12 09:00,
+Q-107,Feature request for reports,open,Ben,chat,not-a-date,,,
+Q-108,Charge is duplicated,open,Cara,email,2026-12-01 09:00,,,
+Q-101,Refund not received,open,Ana,email,2026-11-16 09:00,2026-11-16 09:30,2026-11-16 09:30,
+Q-109,Delivery address wrong,open,Ana,email,2026-11-15 09:00,2026-11-16 12:00,2026-11-16 12:00,
+Q-110,API returns 500 errors,open,Ben,chat,2026-11-16 09:00,,2026-11-16 09:00,
+Q-111,Cancel my subscription,solved,Dan,phone,2026-11-01 09:00,2026-11-01 10:00,2026-11-02 09:00,2026-11-02 09:00
+Q-112,Where is my invoice?,open,,email,2026-11-16 10:00,,2026-11-16 10:00,
+Q-113,Slow dashboard load,open,Ben,chat,2026-11-01 09:00,2026-11-01 10:00,2026-11-01 10:00,,extra-field
+Q-114,Two-factor code not arriving,open,Cara,chat,2026-11-13 09:00,2026-11-13 09:00,2026-11-16 09:00,2026-11-12 09:00
+Q-115,Update my billing email,open,Ana,email,,,,
+Q-116,Webhook keeps failing,open,Dan,phone,2026-11-16 09:00,2026-11-16 08:00,2026-11-16 09:00,
+Q-117,How do I change my plan?,open,Ana,email,2026-11-16 09:00,2026-11-16 09:30,2026-11-16 09:30,
+Q-118,Refund for duplicate order,open,Ben,chat,2026-11-13 09:00,2026-11-13 09:30,2026-11-13 09:30,

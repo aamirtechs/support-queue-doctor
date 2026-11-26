@@ -1,0 +1,3 @@
+id,subject,status,agent,channel,created_at,first_response_at,last_activity_at,resolved_at
+Q-301,Invoice question,open,Ana,email,2026-11-14 09:00,2026-11-14 10:00,2026-11-14 10:00,
+Q-302,Order arrived late,open,Ben,chat,2026-11-15 09:00,2026-11-16 12:00,2026-11-16 12:00,

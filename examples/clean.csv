@@ -1,0 +1,4 @@
+id,subject,status,agent,channel,created_at,first_response_at,last_activity_at,resolved_at
+Q-201,Refund processed,open,Ana,email,2026-11-16 09:00,2026-11-16 09:30,2026-11-16 15:00,
+Q-202,Delivery date question,open,Ben,chat,2026-11-16 10:00,2026-11-16 10:15,2026-11-16 16:00,
+Q-203,Plan upgrade confirmed,pending,Cara,email,2026-11-16 11:00,2026-11-16 11:20,2026-11-16 17:00,
