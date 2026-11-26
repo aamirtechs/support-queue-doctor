@@ -40,6 +40,7 @@ footer a{color:var(--navy)}
 <label>Options</label>
 <div class="grid">
 <div><label for="opt-stale">Stale hours <span class="hint">(--stale-hours)</span></label><input type="number" id="opt-stale" step="1" value="48"></div>
+<div><label for="opt-old">Old hours <span class="hint">(--old-hours)</span></label><input type="number" id="opt-old" step="1" value="72"></div>
 <div><label for="opt-maxopen">Max open per agent <span class="hint">(--max-open)</span></label><input type="number" id="opt-maxopen" step="1" value="20"></div>
 <div><label for="opt-asof">As of <span class="hint">(--as-of)</span></label><input type="text" id="opt-asof" value="2026-11-17"></div>
 </div>
@@ -289,7 +290,7 @@ function parseTickets(text, asOf) {
   }
   return { tickets: tickets, findings: findings };
 }
-function auditTickets(tickets, staleHours, maxOpen, asOf) {
+function auditTickets(tickets, staleHours, maxOpen, asOf, oldHours) {
   var findings = [];
   tickets.forEach(function (ticket) {
     var ticketId = ticket.id;
@@ -315,27 +316,27 @@ function auditTickets(tickets, staleHours, maxOpen, asOf) {
     if (created === null) return;
     var age = hoursBetween(created, asOf);
     if (age < 0) return;
-    if (age > OLD_HOURS) {
+    if (age > oldHours) {
       findings.push(F(ticketId, "old-ticket", "error",
-        "ticket has been open for " + fmtF(age, 1) + " hours, over the limit of " + OLD_HOURS + " hours"));
+        "ticket has been open for " + fmtF(age, 1) + " hours, over the limit of " + oldHours + " hours"));
     }
     if (!ticket.agent) {
-      if (age > OLD_HOURS) {
+      if (age > oldHours) {
         findings.push(F(ticketId, "unassigned-old-ticket", "error",
-          "ticket has no agent and has been open for " + fmtF(age, 1) + " hours, over the limit of " + OLD_HOURS + " hours"));
+          "ticket has no agent and has been open for " + fmtF(age, 1) + " hours, over the limit of " + oldHours + " hours"));
       } else {
         findings.push(F(ticketId, "unassigned-ticket", "warning",
           "ticket has no agent assigned, so nobody owns it"));
       }
     }
-    if (PENDING_STATUSES[ticket.status] && age > OLD_HOURS) {
+    if (PENDING_STATUSES[ticket.status] && age > oldHours) {
       findings.push(F(ticketId, "stuck-pending-ticket", "error",
-        "ticket has been pending for " + fmtF(age, 1) + " hours, over the limit of " + OLD_HOURS +
+        "ticket has been pending for " + fmtF(age, 1) + " hours, over the limit of " + oldHours +
         " hours, so it is hidden from daily views"));
     }
-    if (ON_HOLD_STATUSES[ticket.status] && age > OLD_HOURS) {
+    if (ON_HOLD_STATUSES[ticket.status] && age > oldHours) {
       findings.push(F(ticketId, "stuck-on-hold-ticket", "error",
-        "ticket has been on hold for " + fmtF(age, 1) + " hours, over the limit of " + OLD_HOURS +
+        "ticket has been on hold for " + fmtF(age, 1) + " hours, over the limit of " + oldHours +
         " hours, so it is hidden from daily views"));
     }
     if (first === null) {
@@ -374,13 +375,13 @@ function auditTickets(tickets, staleHours, maxOpen, asOf) {
   });
   return findings;
 }
-function ageBucket(age) {
+function ageBucket(age, oldHours) {
   if (age <= 24) return "0-24h";
-  if (age <= OLD_HOURS) return "24-72h";
+  if (age <= oldHours) return "24-72h";
   if (age <= 168) return "72h-7d";
   return "7d+";
 }
-function summarizeTickets(tickets, findings, asOf, staleHours) {
+function summarizeTickets(tickets, findings, asOf, staleHours, oldHours) {
   var errors = findings.filter(function (f) { return f.severity === "error"; }).length;
   var warnings = findings.length - errors;
   var ruleCounts = {};
@@ -392,7 +393,7 @@ function summarizeTickets(tickets, findings, asOf, staleHours) {
     if (ticket.createdAt === null) return;
     var age = hoursBetween(ticket.createdAt, asOf);
     if (age < 0) return;
-    buckets[ageBucket(age)] += 1;
+    buckets[ageBucket(age, oldHours)] += 1;
     ages.push(age);
   });
   var perAgent = {}, agentOrder = [];
@@ -408,7 +409,7 @@ function summarizeTickets(tickets, findings, asOf, staleHours) {
     var age = hoursBetween(ticket.createdAt, asOf);
     if (age < 0) return;
     row.ages.push(age);
-    if (age > OLD_HOURS) row.old += 1;
+    if (age > oldHours) row.old += 1;
     var lastSeen = ticket.lastActivityAt !== null ? ticket.lastActivityAt : ticket.createdAt;
     if (hoursBetween(lastSeen, asOf) > staleHours) row.stale += 1;
   });
@@ -432,7 +433,7 @@ function summarizeTickets(tickets, findings, asOf, staleHours) {
     if (ticket.createdAt === null) return;
     var age = hoursBetween(ticket.createdAt, asOf);
     if (age < 0) return;
-    if (age > OLD_HOURS) row.old += 1;
+    if (age > oldHours) row.old += 1;
     if (ticket.firstResponseAt === null && age > FIRST_RESPONSE_HOURS) row.breaches += 1;
   });
   var channels = channelOrder.map(function (c) { return perChannel[c]; })
@@ -457,7 +458,7 @@ function formatText(findings, summary) {
   lines.push("");
   lines.push("Tickets: " + summary.tickets + ", open: " + summary.open + ", findings: " +
     summary.findings + ", errors: " + summary.errors + ", warnings: " + summary.warnings);
-  lines.push("Old tickets (over " + OLD_HOURS + " hours): " + summary.old + ", unassigned old: " +
+  lines.push("Old tickets (over " + (summary.oldLimit !== undefined ? summary.oldLimit : OLD_HOURS) + " hours): " + summary.old + ", unassigned old: " +
     summary.unassignedOld + ", stuck pending: " + summary.stuckPending + ", stuck on hold: " + summary.stuckOnHold);
   lines.push("First-response breaches: " + summary.firstResponseBreaches + ", stale tickets: " +
     summary.stale + ", overloaded agents: " + summary.overloadedAgents);
@@ -491,6 +492,8 @@ window.runTool = function (inputText, options) {
   options = options || {};
   var staleHours = optInt(options.staleHours, 48);
   var maxOpen = optInt(options.maxOpen, 20);
+  var oldHours = optInt(options.oldHours, 72);
+  if (oldHours < 0) return "error: --old-hours must be at least 0\n";
   var asOf;
   if (options.asOf === undefined || options.asOf === null || String(options.asOf).trim() === "") {
     asOf = { t: Date.now() * 1000, off: 0 };
@@ -501,8 +504,9 @@ window.runTool = function (inputText, options) {
   var parsed;
   try { parsed = parseTickets(inputText || "", asOf); }
   catch (e) { return "ERROR: " + e.message + "\n"; }
-  var findings = parsed.findings.concat(auditTickets(parsed.tickets, staleHours, maxOpen, asOf));
-  var summary = summarizeTickets(parsed.tickets, findings, asOf, staleHours);
+  var findings = parsed.findings.concat(auditTickets(parsed.tickets, staleHours, maxOpen, asOf, oldHours));
+  var summary = summarizeTickets(parsed.tickets, findings, asOf, staleHours, oldHours);
+  summary.oldLimit = oldHours;
   return formatText(findings, summary);
 };
 </script>
@@ -553,6 +557,7 @@ document.getElementById("sample-warnings").addEventListener("click", function ()
 document.getElementById("run").addEventListener("click", function () {
   var options = {
     staleHours: document.getElementById("opt-stale").value,
+    oldHours: document.getElementById("opt-old").value,
     maxOpen: document.getElementById("opt-maxopen").value,
     asOf: document.getElementById("opt-asof").value
   };
