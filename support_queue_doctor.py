@@ -485,7 +485,33 @@ def summarize(tickets, findings, as_of,
             "per_channel": channels}
 
 
-def render_text(tickets, findings, summary):
+def oldest_open(tickets, as_of, limit=5):
+    """Return the oldest open tickets, oldest first.
+
+    Each row has the ticket id, agent, age in hours, and status.
+    Tickets with no usable created date (missing, unreadable, or
+    after the as-of date) are skipped. Ties break by ticket id.
+    """
+    rows = []
+    for ticket in tickets:
+        if not is_open(ticket):
+            continue
+        created = ticket["created_at"]
+        if created is None:
+            continue
+        age = hours_between(created, as_of)
+        if age < 0:
+            continue
+        rows.append((-age, ticket["id"], {
+            "ticket": ticket["id"],
+            "agent": ticket["agent"] or "(unassigned)",
+            "age_hours": round(age, 1),
+            "status": ticket["status"]}))
+    rows.sort(key=lambda item: (item[0], item[1]))
+    return [item[2] for item in rows[:limit]]
+
+
+def render_text(tickets, findings, summary, oldest=None):
     """Render the text report."""
     lines = [str(item) for item in findings]
     lines.append("")
@@ -528,6 +554,17 @@ def render_text(tickets, findings, summary):
         lines.append("%-12s %5d %4d %9d"
                      % (row["channel"], row["open"], row["old"],
                         row["breaches"]))
+    if oldest is not None:
+        lines.append("")
+        lines.append("Oldest open tickets:")
+        lines.append("%-12s %-12s %9s %s"
+                     % ("ticket", "agent", "age hours", "status"))
+        for row in oldest:
+            lines.append("%-12s %-12s %9.1f %s"
+                         % (row["ticket"], row["agent"],
+                            row["age_hours"], row["status"]))
+        if not oldest:
+            lines.append("none")
     if summary["findings"] == 0:
         lines.append("")
         lines.append("Queue is clean.")
@@ -618,7 +655,8 @@ def main(argv=None):
         report = render_json(tickets, findings, summary)
     else:
         summary_for_text = dict(summary, old_limit=args.old_hours)
-        report = render_text(tickets, findings, summary_for_text)
+        report = render_text(tickets, findings, summary_for_text,
+                             oldest=oldest_open(tickets, as_of))
     if args.out is not None:
         try:
             with open(args.out, "w", encoding="utf-8") as handle:
