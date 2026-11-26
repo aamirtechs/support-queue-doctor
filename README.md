@@ -118,7 +118,12 @@ The summary reports the old, unassigned old, stuck
 pending, stuck on hold, first-response breach, stale, and
 overloaded agent counts, age buckets (0-24h, 24-72h,
 72h-7d, 7d+), the average age of open tickets, and
-per-agent and per-channel tables.
+per-agent and per-channel tables. The text report ends
+with the five oldest open tickets (ticket id, agent, age in
+hours, status), oldest first, so the queue can be worked
+oldest first; tickets with no usable created date are
+skipped and ties break by ticket id. This table is not
+part of the `--json` output.
 
 ## Usage
 
@@ -173,6 +178,14 @@ channel       open  old  breaches
 chat             6    3         0
 email            9    3         1
 phone            2    0         0
+
+Oldest open tickets:
+ticket       agent        age hours status
+Q-104        Cara             134.0 on-hold
+Q-103        Ana              111.0 pending
+Q-106        (unassigned)     111.0 open
+Q-101        Ana               87.0 open
+Q-114        Cara              87.0 open
 ```
 
 The sample has 19 rows; the malformed row 15 is skipped, so
@@ -182,7 +195,8 @@ first-response breach), 1 stuck pending ticket (Q-103),
 1 stuck on hold ticket (Q-104), and 4 stale tickets. The
 per-agent table shows Cara's queue averages 110.5 hours,
 the oldest of the team, and email and chat each carry 3 of
-the 6 old tickets.
+the 6 old tickets. The oldest open ticket is Q-104, on hold
+for 134.0 hours.
 
 Use it as a CI gate: `--check` exits 1 when any error is
 found, and 0 otherwise. On the sample above it exits 1:
@@ -211,6 +225,12 @@ Per-channel summary:
 channel       open  old  breaches
 chat             1    0         0
 email            2    0         0
+
+Oldest open tickets:
+ticket       agent        age hours status
+Q-201        Ana               15.0 open
+Q-202        Ben               14.0 open
+Q-203        Cara              13.0 pending
 
 Queue is clean.
 ```
@@ -245,6 +265,11 @@ Per-channel summary:
 channel       open  old  breaches
 chat             1    0         0
 email            1    0         0
+
+Oldest open tickets:
+ticket       agent        age hours status
+Q-301        Ana               63.0 open
+Q-302        Ben               39.0 open
 ```
 
 With a longer stale window the stale ticket clears:

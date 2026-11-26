@@ -527,6 +527,48 @@ class TestSummary(unittest.TestCase):
         self.assertEqual(summary["per_channel"], [])
 
 
+class TestOldestOpen(unittest.TestCase):
+    """The oldest open tickets table."""
+
+    def test_oldest_first_with_ties_by_id(self):
+        content = HEADER \
+            + row("Q-3", created="2026-11-13 09:00") \
+            + row("Q-1", created="2026-11-16 09:00") \
+            + row("Q-2", created="2026-11-13 09:00", agent="",
+                  status="pending")
+        tickets, findings = parse(content)
+        oldest = sqd.oldest_open(tickets, AS_OF)
+        self.assertEqual(oldest, [
+            {"ticket": "Q-2", "agent": "(unassigned)",
+             "age_hours": 87.0, "status": "pending"},
+            {"ticket": "Q-3", "agent": "Ana", "age_hours": 87.0,
+             "status": "open"},
+            {"ticket": "Q-1", "agent": "Ana", "age_hours": 15.0,
+             "status": "open"}])
+
+    def test_skips_closed_and_unusable_created_dates(self):
+        content = HEADER \
+            + row("Q-1", created="") \
+            + row("Q-2", created="not-a-date") \
+            + row("Q-3", created="2026-12-01 09:00") \
+            + row("Q-4", status="solved", created="2026-11-01 09:00",
+                  resolved="2026-11-02 09:00") \
+            + row("Q-5", created="2026-11-16 09:00")
+        tickets, findings = parse(content)
+        oldest = sqd.oldest_open(tickets, AS_OF)
+        self.assertEqual([item["ticket"] for item in oldest], ["Q-5"])
+
+    def test_limit_is_five(self):
+        content = HEADER + "".join(
+            row("Q-%d" % number,
+                created="2026-11-%02d 09:00" % (8 + number))
+            for number in range(1, 8))
+        tickets, findings = parse(content)
+        oldest = sqd.oldest_open(tickets, AS_OF)
+        self.assertEqual([item["ticket"] for item in oldest],
+                         ["Q-1", "Q-2", "Q-3", "Q-4", "Q-5"])
+
+
 class TestOutputAndCli(unittest.TestCase):
     """Text and JSON output, and --check and --strict exit codes."""
 
@@ -550,6 +592,31 @@ class TestOutputAndCli(unittest.TestCase):
         self.assertIn("Old tickets (over 72 hours): 6", text)
         self.assertIn("Age buckets: 0-24h: 6, 24-72h: 2, "
                       "72h-7d: 6, 7d+: 0", text)
+
+    def test_sample_oldest_open_table(self):
+        path = os.path.join(EXAMPLES, "queue.csv")
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            sqd.main([path, "--as-of", "2026-11-17"])
+        lines = buffer.getvalue().splitlines()
+        start = lines.index("Oldest open tickets:")
+        self.assertEqual(lines[start + 1:start + 7], [
+            "ticket       agent        age hours status",
+            "Q-104        Cara             134.0 on-hold",
+            "Q-103        Ana              111.0 pending",
+            "Q-106        (unassigned)     111.0 open",
+            "Q-101        Ana               87.0 open",
+            "Q-114        Cara              87.0 open"])
+        self.assertLess(lines.index("Per-channel summary:"), start)
+
+    def test_json_has_no_oldest_table(self):
+        path = os.path.join(EXAMPLES, "queue.csv")
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            sqd.main([path, "--as-of", "2026-11-17", "--json"])
+        report = json.loads(buffer.getvalue())
+        self.assertNotIn("oldest_open", report)
+        self.assertNotIn("Oldest open tickets", buffer.getvalue())
 
     def test_clean_file(self):
         path = os.path.join(EXAMPLES, "clean.csv")
