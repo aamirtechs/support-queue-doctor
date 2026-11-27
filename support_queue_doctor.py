@@ -520,6 +520,25 @@ def render_text(tickets, findings, summary):
         lines.append("%-12s %5d %4d %6d %9s"
                      % (row["agent"], row["open"], row["old"],
                         row["stale"], avg))
+    top_old = sorted(
+        (row for row in summary["per_agent"]
+         if row["agent"] != "(unassigned)" and row["old"] > 0),
+        key=lambda row: (
+            -row["old"],
+            -(row["avg_age_hours"]
+              if row["avg_age_hours"] is not None else -1.0),
+            row["agent"],
+        ),
+    )[:3]
+    if top_old:
+        lines.append("")
+        lines.append("Agents with most old tickets:")
+        lines.append("%-12s %4s %9s" % ("agent", "old", "avg hours"))
+        for row in top_old:
+            avg = ("%.1f" % row["avg_age_hours"]
+                   if row["avg_age_hours"] is not None else "-")
+            lines.append("%-12s %4d %9s"
+                         % (row["agent"], row["old"], avg))
     lines.append("")
     lines.append("Per-channel summary:")
     lines.append("%-12s %5s %4s %9s"

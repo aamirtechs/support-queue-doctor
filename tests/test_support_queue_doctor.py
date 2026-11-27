@@ -551,6 +551,28 @@ class TestOutputAndCli(unittest.TestCase):
         self.assertIn("Age buckets: 0-24h: 6, 24-72h: 2, "
                       "72h-7d: 6, 7d+: 0", text)
 
+    def test_top_old_agents_table(self):
+        path = os.path.join(EXAMPLES, "queue.csv")
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = sqd.main([path, "--as-of", "2026-11-17"])
+        self.assertEqual(code, 0)
+        text = buffer.getvalue()
+        self.assertIn("Agents with most old tickets:", text)
+        section = text.split("Agents with most old tickets:")[1].split(
+            "Per-channel summary:")[0]
+        rows = [line.strip() for line in section.strip().splitlines()][1:]
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[0].split(), ["Cara", "2", "110.5"])
+        self.assertEqual(rows[1].split(), ["Ana", "2", "53.4"])
+        self.assertEqual(rows[2].split(), ["Ben", "1", "55.3"])
+
+        json_buf = io.StringIO()
+        with redirect_stdout(json_buf):
+            sqd.main([path, "--as-of", "2026-11-17", "--json"])
+        report = json.loads(json_buf.getvalue())
+        self.assertNotIn("top_old_agents", report)
+
     def test_clean_file(self):
         path = os.path.join(EXAMPLES, "clean.csv")
         buffer = io.StringIO()
